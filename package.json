@@ -42,7 +42,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
-    "electron-builder": "^26.4.0",
     "electron-is-dev": "^3.0.1",
     "electron-serve": "^3.0.0",
     "lucide-react": "^0.562.0",
@@ -53,6 +52,7 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "electron-builder": "^26.4.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
