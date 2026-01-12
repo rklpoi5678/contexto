@@ -1,14 +1,17 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const isDev = require("electron-is-dev");
+const fs = require("fs");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const OpenAi = require("openai");
 
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 // 리눅스 GPU 가속 및 샌드박스 문제 방지
-app.disableHardwareAcceleration();
+// app.disableHardwareAcceleration();
 
+const openai = new OpenAi({ apiKey: process.env.OPENAI_API_KEY });
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash",
@@ -100,11 +103,55 @@ ipcMain.handle("analyze-meeting", async (event, combinedText) => {
 
     // JSON 파싱 후 객체로 전달
     const analysisData = JSON.parse(jsonString);
-    console.log("파싱 성공")
+    console.log("파싱 성공");
 
     return analysisData;
   } catch (error) {
     console.error("분석 에러:", error);
     throw new Error(error.message);
   }
+});
+
+/** STT변환 핸들러 (Whisper API) */
+ipcMain.handle("transcribe-audio", async (event, filePath) => {
+  console.log("STT 변환 요청 수신", filePath);
+  if (!openai || !openai.apiKey) {
+    console.error(
+      "OpenAi API키가 설정되지 않았거나 객체가 생성되지 않았습니다."
+    );
+    throw new Error("OpenAI 클라이언트 초기화 실패");
+  }
+
+  try {
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(filePath),
+      model: "whisper-1",
+      language: "ko",
+    });
+
+    console.log("STT 변환 성공");
+    return transcription.text;
+  } catch (error) {
+    console.log("STT 에러:", error);
+    throw new Error(error.message);
+  }
+});
+
+ipcMain.handle("save-txt-file", async (event, content) => {
+  const { filePath } = await dialog.showSaveDialog({
+    title: "텍스트 파일 저장",
+    defaultPath: path.join(app.getPath("documents"), "transcription.txt"),
+    filters: [{ name: "Text Files", extensions: ["txt"] }],
+  });
+
+  if (filePath) {
+    try {
+      fs.writeFileSync(filePath, content, "utf8");
+      return { success: true, path: filePath };
+    } catch (error) {
+      console.error("파일 저장 에러", error);
+      throw error;
+    }
+  }
+  return { success: true };
 });
