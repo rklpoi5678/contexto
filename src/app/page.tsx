@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Zap, Target, Lightbulb, MessageCircle } from "lucide-react";
 import FileUploadModal from "@/components/layout/FileUploadModal";
+import Link from "next/link";
 
 export default function Home() {
   const features = [
@@ -34,20 +35,31 @@ export default function Home() {
       {/* Hero Section */}
       <section className="px-6 pt-24 pb-16 mx-auto max-w-5xl text-center">
         <h1 className="mb-6 text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 md:text-6xl">
-           컨텍스토 긴 회의의 끝, 복기
+          컨텍스토 긴 회의의 끝, 복기
         </h1>
         <p className="mx-auto mb-10 max-w-2xl text-xl text-slate-600">
-         4가지 사고 프레임워크로 가공합니다.
+          4가지 사고 프레임워크로 가공합니다.
         </p>
         <div className="flex gap-4 justify-center">
           <FileUploadModal />
-          <Button
-            size="lg"
-            variant="outline"
-            className="px-8 py-6 text-lg rounded-full"
-          >
-            개발중
-          </Button>
+          <Link href="/ai-trans">
+            <Button
+              size="lg"
+              variant="default"
+              className="px-8 py-6 text-lg rounded-full"
+            >
+              ai모델로 음성을 텍스트로 변환하기
+            </Button>
+          </Link>
+          <Link href="/local-trans">
+            <Button
+              size="lg"
+              variant="outline"
+              className="px-8 py-6 text-lg rounded-full"
+            >
+              로컬 모델 사용 음성 텍스트로 변환하기
+            </Button>
+          </Link>
         </div>
       </section>
 
