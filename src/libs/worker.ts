@@ -26,9 +26,9 @@ class TranscriptionPipeline {
     progress_callback?: (event: ProgressEvent) => void
   ): Promise<AutomaticSpeechRecognitionPipeline> {
     if (this.instance === null) {
-      this.instance = pipeline(this.task, this.model, { progress_callback }) as Promise<AutomaticSpeechRecognitionPipeline>;
+      this.instance = pipeline(this.task, this.model, { progress_callback }) as any;
     }
-    return this.instance;
+    return this.instance!;
   }
 }
 

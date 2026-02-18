@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getFilePath: (file) => webUtils.getPathForFile(file),
   // 텍스트 저장
   saveTxtFile: (content) => ipcRenderer.invoke("save-txt-file", content),
+  // 실시간 분석
+  analyzeRealtime: (text) => ipcRenderer.invoke("analyze-realtime", text),
 });
