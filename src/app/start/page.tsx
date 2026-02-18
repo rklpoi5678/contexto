@@ -6,12 +6,21 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Brain, Target, Lightbulb, FileSearch } from "lucide-react";
+import {
+  Brain,
+  Target,
+  Lightbulb,
+  FileSearch,
+  Download,
+  Share2,
+  ListTodo,
+  CheckSquare,
+  MessageSquare
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 // API 응답 데이터 타입 정의
 interface AnalysisResult {
@@ -22,6 +31,7 @@ interface AnalysisResult {
 }
 let lastRawData: string | null = null;
 let cachedData: AnalysisResult | null = null;
+
 // 외부 스토어 구독함수
 function subscribe(cb: () => void) {
   window.addEventListener("storage", cb);
@@ -55,10 +65,16 @@ export default function StartPage() {
 
   if (!data) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <p className="text-slate-500">
+      <div className="flex flex-col justify-center items-center h-[80vh] gap-4">
+        <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center animate-pulse">
+          <FileSearch className="w-8 h-8 text-slate-300" />
+        </div>
+        <p className="text-slate-500 font-medium">
           데이터를 불러오는 중이거나 분석된 결과가 없습니다.
         </p>
+        <Button variant="outline" onClick={() => window.location.href = '/'}>
+          대시보드로 돌아가기
+        </Button>
       </div>
     );
   }
@@ -66,7 +82,7 @@ export default function StartPage() {
   const tabs = [
     {
       id: "summary",
-      label: "요약",
+      label: "핵심 요약",
       icon: <FileSearch className="w-4 h-4" />,
       content: data.summary,
     },
@@ -91,63 +107,126 @@ export default function StartPage() {
   ];
 
   return (
-    <div className="container px-4 py-10 mx-auto max-w-5xl">
-      <div className="mb-8 space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">분석 결과 리포트</h1>
-        <p className="text-slate-500">
-          사용자의 AI가(개발중) 4가지 사고 프레임워크로 회의를 분석했습니다.
-        </p>
+    <div className="p-8 max-w-6xl mx-auto space-y-8">
+      {/* Report Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-8">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Badge className="bg-indigo-100 text-indigo-700 border-none">AI Analysis</Badge>
+            <span className="text-sm text-slate-400">2024년 5월 20일</span>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">회의 분석 결과 리포트</h1>
+          <p className="text-slate-500">
+            4가지 사고 프레임워크를 통해 도출된 심층 분석 데이터입니다.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex gap-2" onClick={() => window.print()}>
+            <Download className="w-4 h-4" /> PDF 저장
+          </Button>
+          <Button variant="outline" size="sm" className="flex gap-2">
+            <Share2 className="w-4 h-4" /> 공유하기
+          </Button>
+        </div>
       </div>
 
-      <Tabs defaultValue="summary" className="w-full">
-        <TabsList className="grid grid-cols-2 p-1 mb-8 w-full h-auto lg:grid-cols-4 bg-slate-100">
-          {tabs.map((tab) => (
-            <TabsTrigger
-              key={tab.id}
-              value={tab.id}
-              className="flex items-center gap-2 py-3 data-[state=active]:bg-white"
-            >
-              {tab.icon}
-              <span className="font-medium">{tab.label}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {tabs.map((tab) => (
-          <TabsContent key={tab.id} value={tab.id}>
-            <Card className="bg-white border-none shadow-md">
-              <CardHeader className="border-b bg-slate-50/50">
-                <div className="flex gap-2 items-center text-primary">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Main Tabs Content */}
+        <div className="lg:col-span-3 space-y-6">
+          <Tabs defaultValue="summary" className="w-full">
+            <TabsList className="flex gap-2 p-1 mb-6 bg-slate-100/50 rounded-xl w-fit">
+              {tabs.map((tab) => (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                >
                   {tab.icon}
-                  <CardTitle>{tab.label}</CardTitle>
-                </div>
-                <CardDescription>
-                  {tab.id === "summary" &&
-                    "전체 회의의 핵심 줄거리와 맥락을 요약합니다."}
-                  {tab.id === "pareto" &&
-                    "가장 큰 영향력을 발휘하는 핵심 요소 20%를 추출했습니다."}
-                  {tab.id === "firstPrinciples" &&
-                    "근본적인 원인과 원칙을 바탕으로 문제를 분해합니다."}
-                  {tab.id === "feynman" &&
-                    "복잡한 내용을 누구나 이해할 수 있게 쉬운 비유로 설명합니다."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <ScrollArea className="h-[500px] w-full pr-4">
-                  <div className="max-w-none leading-relaxed whitespace-pre-wrap prose prose-slate break-keep">
-                    {tab.content}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ))}
-      </Tabs>
+                  <span className="font-medium">{tab.label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-      <div className="flex justify-end mt-8">
-        <Button variant="outline" onClick={() => window.print()}>
-          결과 PDF로 저장하기
-        </Button>
+            {tabs.map((tab) => (
+              <TabsContent key={tab.id} value={tab.id} className="mt-0">
+                <Card className="border-none shadow-sm bg-white overflow-hidden">
+                  <div className="p-8">
+                    <div className="flex gap-3 items-center mb-6">
+                      <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+                        {tab.icon}
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-900">{tab.label} 리포트</h2>
+                        <p className="text-sm text-slate-500">
+                          {tab.id === "summary" && "전체 회의의 핵심 줄거리와 맥락"}
+                          {tab.id === "pareto" && "영향력이 가장 큰 핵심 요소 20%"}
+                          {tab.id === "firstPrinciples" && "근본 원인 중심의 문제 분해"}
+                          {tab.id === "feynman" && "누구나 이해하기 쉬운 핵심 개념"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="prose prose-slate max-w-none">
+                      <div className="bg-slate-50/50 rounded-xl p-6 border border-slate-100 min-h-[400px]">
+                        <p className="leading-relaxed whitespace-pre-wrap text-slate-700 selection:bg-indigo-100">
+                          {tab.content}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </div>
+
+        {/* Sidebar Insights */}
+        <div className="space-y-6">
+          <Card className="border-none shadow-sm bg-white">
+            <CardHeader className="pb-3 flex flex-row items-center gap-2">
+              <ListTodo className="w-5 h-5 text-indigo-600" />
+              <CardTitle className="text-lg">액션 아이템</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex gap-3 items-start p-3 rounded-lg border border-slate-50 bg-slate-50/30">
+                  <CheckSquare className="w-4 h-4 text-slate-300 mt-1" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">Q3 로드맵 업데이트</p>
+                    <p className="text-xs text-slate-400 mt-1">담당: 기획팀 / 기한: ~05.25</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-start p-3 rounded-lg border border-slate-50 bg-slate-50/30">
+                  <CheckSquare className="w-4 h-4 text-slate-300 mt-1" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">디자인 시스템 가이드 보완</p>
+                    <p className="text-xs text-slate-400 mt-1">담당: 디자인팀 / 기한: ~05.30</p>
+                  </div>
+                </div>
+              </div>
+              <Button variant="ghost" className="w-full text-xs text-indigo-600 hover:bg-indigo-50">
+                아이템 추가하기 +
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm bg-white">
+            <CardHeader className="pb-3 flex flex-row items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-orange-500" />
+              <CardTitle className="text-lg">주요 결정 사항</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3">
+                <li className="text-sm text-slate-600 pl-4 border-l-2 border-orange-200 py-1">
+                  모바일 첫 화면 진입 속도 개선 우선순위 상향
+                </li>
+                <li className="text-sm text-slate-600 pl-4 border-l-2 border-orange-200 py-1">
+                  신규 피처 A/B 테스트 6월 중순 시작
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

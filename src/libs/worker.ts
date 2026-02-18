@@ -26,6 +26,7 @@ class TranscriptionPipeline {
     progress_callback?: (event: ProgressEvent) => void
   ): Promise<AutomaticSpeechRecognitionPipeline> {
     if (this.instance === null) {
+      // @ts-expect-error - pipeline produces a complex union type
       this.instance = pipeline(this.task, this.model, { progress_callback }) as Promise<AutomaticSpeechRecognitionPipeline>;
     }
     return this.instance;
