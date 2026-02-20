@@ -12,7 +12,12 @@ declare global {
       getFilePath: (file: File) => string;
       saveTxtFile: (
         content: string
-      ) => promise<{ success: boolean; path?: string }>;
+      ) => Promise<{ success: boolean; path?: string }>;
+      analyzeRealtime: (text: string) => Promise<{
+        flowchart: Array<{ id: number; label: string; next?: number }>;
+        insight: string;
+        nextStep: string;
+      }>;
     };
   }
   interface ElectronFile extends File {

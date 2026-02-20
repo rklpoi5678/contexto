@@ -12,9 +12,13 @@ require("dotenv").config({ path: path.join(__dirname, "../.env") });
 // app.disableHardwareAcceleration();
 
 const openai = new OpenAi({ apiKey: process.env.OPENAI_API_KEY });
+const openrouter = new OpenAi({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY, // Fallback if needed
+});
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 const model = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash",
+  model: "gemini-2.0-flash", // Fixed from 2.5 to 2.0
   generationConfig: { responseMimeType: "application/json" },
 });
 
@@ -154,4 +158,58 @@ ipcMain.handle("save-txt-file", async (event, content) => {
     }
   }
   return { success: true };
+});
+
+/** OpenRouter 실시간 분석 핸들러 */
+ipcMain.handle("analyze-realtime", async (event, combinedText) => {
+  console.log("[LOG] 실시간 분석 요청 수신");
+  
+  // Validate and truncate input if too large
+  const MAX_INPUT_LENGTH = 20000;
+  if (!combinedText || typeof combinedText !== 'string') {
+    throw new Error("Invalid input: combinedText must be a string");
+  }
+  
+  let processedText = combinedText;
+  if (combinedText.length > MAX_INPUT_LENGTH) {
+    console.warn(`[WARN] Input text too large (${combinedText.length} chars), truncating to ${MAX_INPUT_LENGTH}`);
+    processedText = combinedText.slice(-MAX_INPUT_LENGTH);
+  }
+  
+  try {
+    const prompt = `
+        당신은 실시간 회의 도우미입니다. 현재까지의 대화 내용을 바탕으로 다음을 수행하세요:
+        1. 대화의 흐름을 파악하여 간단한 플로우차트 데이터를 생성하세요 (최대 5개 노드).
+        2. 현재 대화에서의 주요 인사이트를 추출하세요.
+        3. 다음에 어떤 대화를 이어가면 좋을지 제안하세요.
+
+        반드시 JSON 형식으로 응답하세요.
+        응답 형식(JSON):
+        {
+          "flowchart": [
+            {"id": 1, "label": "주제 1", "next": 2},
+            {"id": 2, "label": "주제 2", "next": 3},
+            ...
+          ],
+          "insight": "현재 주요 내용은...",
+          "nextStep": "다음으로는 ...에 대해 이야기해보는 것이 좋습니다."
+        }
+
+        회의록 내용:
+        ${processedText}
+    `;
+
+    const response = await openrouter.chat.completions.create({
+      model: "google/gemini-2.0-flash-lite-preview-02-05:free",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    });
+
+    const analysisData = JSON.parse(response.choices[0].message.content);
+    console.log("실시간 분석 파싱 성공");
+    return analysisData;
+  } catch (error) {
+    console.error("실시간 분석 에러:", error);
+    throw new Error(error.message);
+  }
 });

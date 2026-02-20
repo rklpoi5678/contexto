@@ -60,6 +60,15 @@ export default function Home() {
               로컬 모델 사용 음성 텍스트로 변환하기
             </Button>
           </Link>
+          <Link href="/realtime-assistant">
+            <Button
+              size="lg"
+              variant="default"
+              className="px-8 py-6 text-lg rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200"
+            >
+              실시간 회의 도우미 시작하기
+            </Button>
+          </Link>
         </div>
       </section>
 
