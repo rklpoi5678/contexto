@@ -17,25 +17,58 @@ interface AnalysisResult {
   nextStep: string;
 }
 
+type SpeechRecognitionResultLike = { transcript: string };
+type SpeechRecognitionResultListLike = ArrayLike<ArrayLike<SpeechRecognitionResultLike>>;
+type SpeechRecognitionEventLike = { resultIndex: number; results: SpeechRecognitionResultListLike };
+type SpeechRecognitionErrorEventLike = { error: string };
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+};
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
 export default function RealtimeAssistant() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const lastAnalysisTranscriptRef = useRef("");
+  const transcriptRef = useRef("");
+  const isAnalyzingRef = useRef(false);
+
+  // Keep transcriptRef in sync with transcript state
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      const SpeechRecognition = (window as Window & {webkitSpeechRecognition?: SpeechRecognitionConstructor; SpeechRecognition?: SpeechRecognitionConstructor;}).webkitSpeechRecognition || (window as Window & { SpeechRecognition?: SpeechRecognitionConstructor}).SpeechRecognition;
       if (SpeechRecognition) {
         recognitionRef.current = new SpeechRecognition();
         recognitionRef.current.continuous = true;
         recognitionRef.current.interimResults = true;
         recognitionRef.current.lang = "ko-KR";
 
-        recognitionRef.current.onresult = (event: any) => {
+        recognitionRef.current.start = () => {
+          setIsRecording(true);
+          setError(null);
+        };
+
+        recognitionRef.current.stop = () => {
+          setIsRecording(false);
+        };
+
+        recognitionRef.current.onresult = (event: SpeechRecognitionEventLike) => {
           let currentTranscript = "";
           for (let i = event.resultIndex; i < event.results.length; i++) {
             currentTranscript += event.results[i][0].transcript;
@@ -43,15 +76,31 @@ export default function RealtimeAssistant() {
           // Only add if it's not just repeating the same thing
           setTranscript(prev => {
               if (prev.endsWith(currentTranscript.trim())) return prev;
-              return prev + " " + currentTranscript;
+              const newTranscript = prev + " " + currentTranscript;
+              // Cap transcript at 15000 chars to protect UI performance
+              const MAX_TRANSCRIPT_LENGTH = 15000;
+              if (newTranscript.length > MAX_TRANSCRIPT_LENGTH) {
+                return newTranscript.slice(-MAX_TRANSCRIPT_LENGTH);
+              }
+              return newTranscript;
           });
         };
 
-        recognitionRef.current.onerror = (event: any) => {
+        recognitionRef.current.onerror = (event: SpeechRecognitionErrorEventLike) => {
           console.error("Speech recognition error", event.error);
           if (event.error === 'no-speech') return;
+          
+          // Handle permission-related errors explicitly
+          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            setError("마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.");
+          } else {
+            setError(`음성 인식 오류: ${event.error}`);
+          }
           setIsRecording(false);
         };
+      } else {
+        setSpeechSupported(false);
+        setError("이 브라우저는 음성 인식을 지원하지 않습니다.");
       }
     }
 
@@ -64,41 +113,66 @@ export default function RealtimeAssistant() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (isRecording && transcript.length > lastAnalysisTranscriptRef.current.length + 50) {
+      if (
+        isRecording &&
+        !isAnalyzingRef.current &&
+        transcriptRef.current.length > lastAnalysisTranscriptRef.current.length + 50
+      ) {
         handleAnalyze();
       }
     }, 15000); // Analyze every 15 seconds if transcript grows
 
     return () => clearInterval(interval);
-  }, [isRecording, transcript]);
+  }, [isRecording]);
 
   const toggleRecording = () => {
     if (isRecording) {
       recognitionRef.current?.stop();
-      setIsRecording(false);
     } else {
+      if (!recognitionRef.current) {
+        setError("음성 인식이 초기화되지 않았습니다.");
+        return;
+      }
+      
       setTranscript("");
       setAnalysis(null);
       lastAnalysisTranscriptRef.current = "";
-      recognitionRef.current?.start();
-      setIsRecording(true);
+      setError(null);
+      
+      try {
+        recognitionRef.current.start();
+      } catch (err) {
+        console.error("Failed to start speech recognition", err);
+        setError("음성 인식을 시작할 수 없습니다. 마이크 권한을 확인해주세요.");
+        setIsRecording(false);
+      }
     }
   };
 
   const handleAnalyze = async () => {
-    if (!transcript || isAnalyzing) return;
+    if (!transcriptRef.current || isAnalyzingRef.current) return;
 
     setIsAnalyzing(true);
+    isAnalyzingRef.current = true;
     try {
       if (window.electronAPI) {
-        const result = await window.electronAPI.analyzeRealtime(transcript);
+        // Send only the delta (new content since last analysis)
+        const deltaText = transcriptRef.current.slice(lastAnalysisTranscriptRef.current.length);
+        
+        if (!deltaText.trim()) {
+          console.log("No new content to analyze");
+          return;
+        }
+        
+        const result = await window.electronAPI.analyzeRealtime(deltaText);
         setAnalysis(result);
-        lastAnalysisTranscriptRef.current = transcript;
+        lastAnalysisTranscriptRef.current = transcriptRef.current;
       }
     } catch (error) {
       console.error("Analysis error", error);
     } finally {
       setIsAnalyzing(false);
+      isAnalyzingRef.current = false;
     }
   };
 
@@ -122,6 +196,7 @@ export default function RealtimeAssistant() {
             <Button
               variant={isRecording ? "destructive" : "default"}
               onClick={toggleRecording}
+              disabled={!speechSupported}
               className="rounded-full px-6 transition-all hover:scale-105"
             >
               {isRecording ? (
@@ -132,6 +207,13 @@ export default function RealtimeAssistant() {
             </Button>
         </div>
       </div>
+      
+      {/* Error message */}
+      {error && (
+        <div className="px-4 py-2 bg-red-50 border-b border-red-200 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden h-[400px]">
         {/* Left: Transcript */}
