@@ -163,6 +163,19 @@ ipcMain.handle("save-txt-file", async (event, content) => {
 /** OpenRouter 실시간 분석 핸들러 */
 ipcMain.handle("analyze-realtime", async (event, combinedText) => {
   console.log("[LOG] 실시간 분석 요청 수신");
+  
+  // Validate and truncate input if too large
+  const MAX_INPUT_LENGTH = 20000;
+  if (!combinedText || typeof combinedText !== 'string') {
+    throw new Error("Invalid input: combinedText must be a string");
+  }
+  
+  let processedText = combinedText;
+  if (combinedText.length > MAX_INPUT_LENGTH) {
+    console.warn(`[WARN] Input text too large (${combinedText.length} chars), truncating to ${MAX_INPUT_LENGTH}`);
+    processedText = combinedText.slice(-MAX_INPUT_LENGTH);
+  }
+  
   try {
     const prompt = `
         당신은 실시간 회의 도우미입니다. 현재까지의 대화 내용을 바탕으로 다음을 수행하세요:
@@ -183,7 +196,7 @@ ipcMain.handle("analyze-realtime", async (event, combinedText) => {
         }
 
         회의록 내용:
-        ${combinedText}
+        ${processedText}
     `;
 
     const response = await openrouter.chat.completions.create({
